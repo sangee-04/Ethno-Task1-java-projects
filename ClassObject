@@ -1,0 +1,12 @@
+class Student {
+    int id = 101;
+    String name = "Sangeetha";
+    void show() {
+        System.out.println("Student ID: " + id);
+        System.out.println("Student Name: " + name);
+    }
+    public static void main(String[] args) {
+        Student s = new Student();
+        s.show();
+    }
+}
