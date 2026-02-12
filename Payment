@@ -1,0 +1,63 @@
+import java.util.Scanner;
+interface PaymentMode {
+    void makePayment(double amount);
+}
+class UPI implements PaymentMode {
+    @Override
+    public void makePayment(double amount) {
+        System.out.println("Payment of ₹" + amount + " done via UPI");
+    }
+}
+class Credit implements PaymentMode {
+    @Override
+    public void makePayment(double amount) {
+        System.out.println("Payment of ₹" + amount + " done via Credit Card");
+    }
+}
+class Debit implements PaymentMode {
+    @Override
+    public void makePayment(double amount) {
+        System.out.println("Payment of ₹" + amount + " done via Debit Card");
+    }
+}
+class Cash implements PaymentMode {
+    @Override
+    public void makePayment(double amount) {
+        System.out.println(" Payment of ₹" + amount + " done via Cash");
+    }
+}
+public class Payment {    
+    static PaymentMode getPaymentMethod(String type) {
+        if (type.equalsIgnoreCase("upi"))
+            return new UPI();
+        else if (type.equalsIgnoreCase("credit"))
+            return new Credit();
+        else if (type.equalsIgnoreCase("debit"))
+            return new Debit();
+        else if (type.equalsIgnoreCase("cash"))
+            return new Cash();
+        else
+            return null;
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter total amount: ₹");
+        double amount = sc.nextDouble();
+        sc.nextLine(); 
+
+        System.out.println("\nAvailable payment methods: UPI / Credit / Debit / Cash");
+        System.out.print("Enter payment method: ");
+        String choice = sc.nextLine();
+
+        PaymentMode payment = getPaymentMethod(choice);
+
+        if (payment != null) {
+            payment.makePayment(amount); 
+        } else {
+            System.out.println("Invalid payment method!");
+        }
+        sc.close();
+    }
+}
