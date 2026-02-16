@@ -1,0 +1,263 @@
+package com.calltaxis;
+import com.sun.net.httpserver.Headers;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import java.io.*;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.*;
+public class SimpleServer {
+
+    private static final int PORT = 9191;
+
+    private static final TaxiService service = new TaxiService(4);
+
+    public static void main(String[] args) throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
+        server.createContext("/", ex -> {
+            String path = ex.getRequestURI().getPath();
+            if (path.equals("/")) path = "/index.html";
+
+            File file = new File("web" + path);
+            if (!file.exists() || file.isDirectory()) {
+                sendText(ex, 404, "Not Found: " + path);
+                return;
+            }
+
+            byte[] data = Files.readAllBytes(file.toPath());
+            ex.getResponseHeaders().set("Content-Type", contentType(path));
+            ex.sendResponseHeaders(200, data.length);
+            ex.getResponseBody().write(data);
+            ex.close();
+        });
+        server.createContext("/api/book", ex -> {
+            if (!ex.getRequestMethod().equalsIgnoreCase("POST")) {
+                sendText(ex, 405, "Method Not Allowed");
+                return;
+            }
+
+            String body = readBody(ex);
+
+            int customerId = parseInt(body, "customerId");
+            String pickupStr = parseString(body, "pickup");
+            String dropStr = parseString(body, "drop");
+            int pickupTime = parseInt(body, "pickupTime");
+
+            Point pickup = Point.from(pickupStr);
+            Point drop = Point.from(dropStr);
+
+            TaxiService.BookingResult res = service.bookTaxi(customerId, pickup, drop, pickupTime);
+
+            if (!res.ok) {
+                sendJson(ex, 200,
+                        "{\"ok\":false,\"message\":\"" + escape(res.message) + "\"}");
+            } else {
+                Booking b = res.booking;
+                String json = "{"
+                        + "\"ok\":true,"
+                        + "\"message\":\"" + escape(res.message) + "\","
+                        + "\"taxiId\":" + res.taxiId + ","
+                        + "\"booking\":{"
+                        + "\"bookingId\":" + b.bookingId + ","
+                        + "\"customerId\":" + b.customerId + ","
+                        + "\"from\":\"" + b.from + "\","
+                        + "\"to\":\"" + b.to + "\","
+                        + "\"pickupTime\":" + b.pickupTime + ","
+                        + "\"dropTime\":" + b.dropTime + ","
+                        + "\"amount\":" + b.amount
+                        + "}"
+                        + "}";
+                sendJson(ex, 200, json);
+            }
+        });
+        server.createContext("/api/taxis", ex -> {
+            if (!ex.getRequestMethod().equalsIgnoreCase("GET")) {
+                sendText(ex, 405, "Method Not Allowed");
+                return;
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.append("{\"taxis\":[");
+            List<Taxi> taxis = service.getTaxis();
+            for (int i = 0; i < taxis.size(); i++) {
+                Taxi t = taxis.get(i);
+                sb.append("{")
+                        .append("\"id\":").append(t.id).append(",")
+                        .append("\"point\":\"").append(t.currentPoint).append("\",")
+                        .append("\"freeTime\":").append(t.freeTime).append(",")
+                        .append("\"totalEarnings\":").append(t.totalEarnings).append(",")
+                        .append("\"trips\":[");
+                for (int j = 0; j < t.trips.size(); j++) {
+                    Booking b = t.trips.get(j);
+                    sb.append("{")
+                            .append("\"bookingId\":").append(b.bookingId).append(",")
+                            .append("\"customerId\":").append(b.customerId).append(",")
+                            .append("\"from\":\"").append(b.from).append("\",")
+                            .append("\"to\":\"").append(b.to).append("\",")
+                            .append("\"pickupTime\":").append(b.pickupTime).append(",")
+                            .append("\"dropTime\":").append(b.dropTime).append(",")
+                            .append("\"amount\":").append(b.amount)
+                            .append("}");
+                    if (j < t.trips.size() - 1) sb.append(",");
+                }
+                sb.append("]}");
+                if (i < taxis.size() - 1) sb.append(",");
+            }
+            sb.append("]}");
+            sendJson(ex, 200, sb.toString());
+        });
+        server.setExecutor(null);
+        server.start();
+        System.out.println("✅ Server running: http://localhost:" + PORT);
+        System.out.println("📌 Make sure web files exist: web/index.html, web/style.css, web/app.js");
+    }
+    enum Point {
+        A, B, C, D, E, F;
+        static Point from(String s) {
+            return Point.valueOf(s.trim().toUpperCase());
+        }
+        int index() { return this.ordinal(); }
+        static int distanceKm(Point p1, Point p2) {
+            return Math.abs(p1.index() - p2.index()) * 15;
+        }
+        static int travelHours(Point p1, Point p2) {
+            return Math.abs(p1.index() - p2.index()); // 1 hour per adjacent point
+        }
+    }
+    static class Booking {
+        final int bookingId;
+        final int customerId;
+        final Point from;
+        final Point to;
+        final int pickupTime;
+        final int dropTime;
+        final int amount;
+        Booking(int bookingId, int customerId, Point from, Point to, int pickupTime, int dropTime, int amount) {
+            this.bookingId = bookingId;
+            this.customerId = customerId;
+            this.from = from;
+            this.to = to;
+            this.pickupTime = pickupTime;
+            this.dropTime = dropTime;
+            this.amount = amount;
+        }
+    }
+    static class Taxi {
+        final int id;
+        Point currentPoint = Point.A;
+        int freeTime = 0;        // hour when taxi becomes free
+        int totalEarnings = 0;
+        final List<Booking> trips = new ArrayList<>();
+        Taxi(int id) { this.id = id; }
+        boolean canServe(Point pickup, int pickupTime) {
+            if (freeTime > pickupTime) return false;
+            int hoursToPickup = Point.travelHours(currentPoint, pickup);
+            return (freeTime + hoursToPickup) <= pickupTime;
+        }
+        int distancePointsToPickup(Point pickup) {
+            return Math.abs(currentPoint.index() - pickup.index()); // distance in "segments"
+        }
+        void assignTrip(Booking b) {
+            trips.add(b);
+            totalEarnings += b.amount;
+            currentPoint = b.to;
+            freeTime = b.dropTime;
+        }
+    }
+    static class TaxiService {
+        private final List<Taxi> taxis = new ArrayList<>();
+        private int nextBookingId = 1;
+        TaxiService(int n) {
+            for (int i = 1; i <= n; i++) taxis.add(new Taxi(i));
+        }
+        List<Taxi> getTaxis() { return taxis; }
+        static int calculateFare(int km) {
+            if (km <= 5) return 100;
+            return 100 + (km - 5) * 10;
+        }
+        BookingResult bookTaxi(int customerId, Point pickup, Point drop, int pickupTime) {
+            Taxi selected = taxis.stream()
+                    .filter(t -> t.canServe(pickup, pickupTime))
+                    .min(Comparator
+                            .comparingInt((Taxi t) -> t.distancePointsToPickup(pickup))
+                            .thenComparingInt(t -> t.totalEarnings)
+                            .thenComparingInt(t -> t.id))
+                    .orElse(null);
+            if (selected == null) {
+                return BookingResult.rejected("No taxi free at that time. Booking rejected.");
+            }
+            int tripHours = Point.travelHours(pickup, drop);
+            int dropTime = pickupTime + tripHours;
+            int km = Point.distanceKm(pickup, drop);
+            int amount = calculateFare(km);
+            Booking b = new Booking(nextBookingId++, customerId, pickup, drop, pickupTime, dropTime, amount);
+            selected.assignTrip(b);
+
+            return BookingResult.success(selected.id, b);
+        }
+        static class BookingResult {
+            final boolean ok;
+            final String message;
+            final Integer taxiId;
+            final Booking booking;
+            private BookingResult(boolean ok, String message, Integer taxiId, Booking booking) {
+                this.ok = ok;
+                this.message = message;
+                this.taxiId = taxiId;
+                this.booking = booking;
+            }
+            static BookingResult success(int taxiId, Booking booking) {
+                return new BookingResult(true, "Taxi can be allotted.", taxiId, booking);
+            }
+            static BookingResult rejected(String msg) {
+                return new BookingResult(false, msg, null, null);
+            }
+        }
+    }
+    private static String readBody(HttpExchange ex) throws IOException {
+        try (InputStream is = ex.getRequestBody()) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+    private static void sendText(HttpExchange ex, int code, String text) throws IOException {
+        byte[] data = text.getBytes(StandardCharsets.UTF_8);
+        ex.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+        ex.sendResponseHeaders(code, data.length);
+        ex.getResponseBody().write(data);
+        ex.close();
+    }
+    private static void sendJson(HttpExchange ex, int code, String json) throws IOException {
+        Headers h = ex.getResponseHeaders();
+        h.set("Content-Type", "application/json; charset=utf-8");
+        byte[] data = json.getBytes(StandardCharsets.UTF_8);
+        ex.sendResponseHeaders(code, data.length);
+        ex.getResponseBody().write(data);
+        ex.close();
+    }
+    private static String contentType(String path) {
+        if (path.endsWith(".html")) return "text/html; charset=utf-8";
+        if (path.endsWith(".css")) return "text/css; charset=utf-8";
+        if (path.endsWith(".js")) return "application/javascript; charset=utf-8";
+        return "application/octet-stream";
+    }
+    private static int parseInt(String json, String key) {
+        String raw = parseStringRaw(json, key).replaceAll("[^0-9]", "");
+        return Integer.parseInt(raw);
+    }
+    private static String parseString(String json, String key) {
+        String raw = parseStringRaw(json, key).trim();
+        if (raw.startsWith("\"") && raw.endsWith("\"")) raw = raw.substring(1, raw.length() - 1);
+        return raw;
+    }
+    private static String parseStringRaw(String json, String key) {
+        int i = json.indexOf("\"" + key + "\"");
+        if (i < 0) throw new RuntimeException("Missing key: " + key);
+        int colon = json.indexOf(":", i);
+        int comma = json.indexOf(",", colon);
+        int end = (comma == -1) ? json.indexOf("}", colon) : comma;
+        return json.substring(colon + 1, end).trim();
+    }
+    private static String escape(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+}
