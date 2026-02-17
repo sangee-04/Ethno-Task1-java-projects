@@ -1,0 +1,52 @@
+import java.util.Scanner;
+public class StudentGrades {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        final int STUDENT_COUNT = 5;
+        final int SUBJECT_COUNT = 3; 
+        String[] names = new String[STUDENT_COUNT];
+        int[][] marks = new int[STUDENT_COUNT][SUBJECT_COUNT];     
+        for (int i = 0; i < STUDENT_COUNT; i++) {
+            System.out.print("Enter name of student " + (i + 1) + ": ");
+            names[i] = sc.nextLine().trim();
+            for (int j = 0; j < SUBJECT_COUNT; j++) {
+                while (true) {
+                    System.out.print("Enter marks for subject " + (j + 1) + " (0-100): ");
+                    if (sc.hasNextInt()) {
+                        int m = sc.nextInt();
+                        if (m >= 0 && m <= 100) {
+                            marks[i][j] = m;
+                            break;
+                        } else {
+                            System.out.println("Marks must be between 0 and 100.");
+                        }
+                    } else {
+                        System.out.println("Invalid input. Please enter an integer.");
+                        sc.next(); 
+                    }
+                }
+            }
+            sc.nextLine(); 
+        }      
+        System.out.println("\n--- Student Report ---");
+        System.out.printf("%-15s %-12s %-8s%n", "Name", "Total Marks", "Grade");
+        System.out.println("----------------------------------------");
+        for (int i = 0; i < STUDENT_COUNT; i++) {
+            int total = 0;
+            for (int j = 0; j < SUBJECT_COUNT; j++) {
+                total += marks[i][j];
+            }
+            char grade = calculateGrade(total, SUBJECT_COUNT);
+            System.out.printf("%-15s %-12d %-8c%n", names[i], total, grade);
+        }
+        sc.close();
+    }  
+    private static char calculateGrade(int total, int subjectCount) {
+        double percentage = (double) total / (subjectCount * 100) * 100;
+        if (percentage >= 85) return 'A';
+        else if (percentage >= 70) return 'B';
+        else if (percentage >= 50) return 'C';
+        else if (percentage >= 35) return 'D';
+        else return 'F';
+    }
+}
