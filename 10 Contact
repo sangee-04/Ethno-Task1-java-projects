@@ -1,0 +1,206 @@
+import java.util.*;
+
+/** ---------- Custom Exceptions ---------- */
+class DuplicateContactException extends Exception {
+    public DuplicateContactException(String message) { super(message); }
+}
+
+class ContactLimitException extends Exception {
+    public ContactLimitException(String message) { super(message); }
+}
+
+class ContactNotFoundException extends Exception {
+    public ContactNotFoundException(String message) { super(message); }
+}
+
+/** ---------- Contact Model ---------- */
+class Contact {
+    private String name;
+    private String phone;
+
+    public Contact(String name, String phone) {
+        this.name = name.trim();
+        this.phone = phone.trim();
+    }
+
+    public String getName() { return name; }
+    public String getPhone() { return phone; }
+
+    public void setName(String name) { this.name = name.trim(); }
+    public void setPhone(String phone) { this.phone = phone.trim(); }
+
+    @Override
+    public String toString() {
+        return String.format("Name: %-15s Phone: %s", name, phone);
+    }
+}
+
+/** ---------- Service Layer ---------- */
+class ContactBook {
+    private final List<Contact> contacts = new ArrayList<>();
+    private static final int MAX_CONTACTS = 10;
+
+    public void addContact(String name, String phone)
+            throws DuplicateContactException, ContactLimitException {
+
+        String p = phone.trim();
+
+        // 1) Check duplicate FIRST (so you get duplicate message when applicable)
+        for (Contact c : contacts) {
+            if (c.getPhone().equals(p)) {
+                throw new DuplicateContactException(
+                        "Duplicate contact! Phone number already exists: " + p
+                );
+            }
+        }
+
+        // 2) Then check limit
+        if (contacts.size() >= MAX_CONTACTS) {
+            throw new ContactLimitException("Contact limit reached! Only 10 contacts allowed.");
+        }
+
+        contacts.add(new Contact(name, p));
+        System.out.println("Contact added successfully!");
+    }
+
+    public void deleteByPhone(String phone) throws ContactNotFoundException {
+        String p = phone.trim();
+        Iterator<Contact> it = contacts.iterator();
+        while (it.hasNext()) {
+            Contact c = it.next();
+            if (c.getPhone().equals(p)) {
+                it.remove();
+                System.out.println("Contact deleted successfully!");
+                return;
+            }
+        }
+        throw new ContactNotFoundException("Contact not found with phone: " + p);
+    }
+
+    public void editByPhone(String oldPhone, String newName, String newPhone)
+            throws ContactNotFoundException, DuplicateContactException {
+
+        String oldP = oldPhone.trim();
+        String newP = newPhone.trim();
+
+        Contact target = null;
+        for (Contact c : contacts) {
+            if (c.getPhone().equals(oldP)) {
+                target = c;
+                break;
+            }
+        }
+        if (target == null) {
+            throw new ContactNotFoundException("Contact not found with phone: " + oldP);
+        }
+
+        // If changing phone, check duplicate
+        if (!newP.equals(oldP)) {
+            for (Contact c : contacts) {
+                if (c.getPhone().equals(newP)) {
+                    throw new DuplicateContactException(
+                            "Duplicate contact! Phone number already exists: " + newP
+                    );
+                }
+            }
+        }
+
+        target.setName(newName);
+        target.setPhone(newP);
+        System.out.println("Contact updated successfully!");
+    }
+
+    public void displayAll() {
+        if (contacts.isEmpty()) {
+            System.out.println("No contacts saved yet.");
+            return;
+        }
+
+        System.out.println("\nCONTACT LIST (" + contacts.size() + "/10)");
+        System.out.println("----------------------------------");
+        for (Contact c : contacts) {
+            System.out.println(c);
+        }
+        System.out.println("----------------------------------");
+    }
+}
+
+/** ---------- UI ---------- */
+public class ContactBookApp {
+
+    private static String readNonEmpty(Scanner sc, String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String s = sc.nextLine().trim();
+            if (!s.isEmpty()) return s;
+            System.out.println("Input cannot be empty. Try again.");
+        }
+    }
+
+    private static String readPhone(Scanner sc, String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String phone = sc.nextLine().trim();
+            if (phone.matches("\\d{8,15}")) return phone;
+            System.out.println("Invalid phone. Enter only digits (8 to 15 digits).");
+        }
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        ContactBook book = new ContactBook();
+
+        while (true) {
+            System.out.println("\n========= CONTACT BOOK =========");
+            System.out.println("1. Add Contact");
+            System.out.println("2. Edit Contact (by phone)");
+            System.out.println("3. Delete Contact (by phone)");
+            System.out.println("4. Display Contacts");
+            System.out.println("5. Exit");
+            System.out.print("Enter choice: ");
+
+            String line = sc.nextLine().trim();
+            int choice;
+            try {
+                choice = Integer.parseInt(line);
+            } catch (NumberFormatException e) {
+                System.out.println("Enter a valid number (1-5).");
+                continue;
+            }
+
+            try {
+                switch (choice) {
+                    case 1: {
+                        String name = readNonEmpty(sc, "Enter Name: ");
+                        String phone = readPhone(sc, "Enter Phone (digits only): ");
+                        book.addContact(name, phone);
+                        break;
+                    }
+                    case 2: {
+                        String oldPhone = readPhone(sc, "Enter Existing Phone to Edit: ");
+                        String newName = readNonEmpty(sc, "Enter New Name: ");
+                        String newPhone = readPhone(sc, "Enter New Phone: ");
+                        book.editByPhone(oldPhone, newName, newPhone);
+                        break;
+                    }
+                    case 3: {
+                        String phone = readPhone(sc, "Enter Phone to Delete: ");
+                        book.deleteByPhone(phone);
+                        break;
+                    }
+                    case 4:
+                        book.displayAll();
+                        break;
+                    case 5:
+                        System.out.println("Exiting...");
+                        sc.close();
+                        return;
+                    default:
+                        System.out.println("Invalid choice! Choose 1 to 5.");
+                }
+            } catch (DuplicateContactException | ContactLimitException | ContactNotFoundException ex) {
+                System.out.println(ex.getMessage());
+            }
+        }
+    }
+}
