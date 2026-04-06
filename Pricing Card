@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing UI</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+  background: linear-gradient(135deg, #020617, #0f172a);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+/* Cards */
+.container {
+  display: flex;
+  gap: 25px;
+}
+
+.card {
+  background: #0b1324;
+  color: white;
+  width: 260px;
+  padding: 25px;
+  border-radius: 20px;
+  text-align: center;
+  transition: 0.4s;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.card:hover {
+  transform: translateY(-15px) scale(1.05);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+}
+
+.highlight {
+  background: linear-gradient(135deg, #1e3a8a, #06b6d4);
+  transform: scale(1.1);
+}
+
+.card i {
+  font-size: 28px;
+  margin-bottom: 10px;
+  color: #38bdf8;
+}
+
+.price {
+  font-size: 38px;
+  margin: 10px 0;
+}
+
+.price span {
+  font-size: 14px;
+  color: #cbd5f5;
+}
+
+ul {
+  list-style: none;
+  margin: 20px 0;
+}
+
+ul li {
+  margin: 8px 0;
+  color: #cbd5f5;
+}
+
+ul li i {
+  color: #22c55e;
+  margin-right: 6px;
+}
+
+button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 25px;
+  background: #38bdf8;
+  color: white;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+button:hover {
+  transform: scale(1.1);
+  background: #0ea5e9;
+}
+
+/* Popup, Payment, Success */
+.popup, .payment, .success {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: #0f172a;
+  color: white;
+  padding: 25px;
+  border-radius: 15px;
+  width: 320px;
+  text-align: center;
+  transition: 0.4s;
+  z-index: 1000;
+}
+
+.popup.active, .payment.active, .success.active {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.overlay {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  display: none;
+}
+
+.overlay.active {
+  display: block;
+}
+
+.payment-options {
+  margin: 15px 0;
+  text-align: left;
+}
+
+.payment-options label {
+  display: block;
+  margin: 8px 0;
+}
+
+.success i {
+  font-size: 40px;
+  color: #22c55e;
+  margin-bottom: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- Basic -->
+  <div class="card">
+    <i class="fas fa-leaf"></i>
+    <h2>Basic</h2>
+    <div class="price">₹199 <span>/month</span></div>
+    <p>Start your journey 🚀</p>
+    <ul>
+      <li><i class="fas fa-check"></i>1 Project</li>
+      <li><i class="fas fa-check"></i>Email Support</li>
+    </ul>
+    <button onclick="selectPlan('Basic')">Choose</button>
+  </div>
+
+  <!-- Standard -->
+  <div class="card highlight">
+    <i class="fas fa-star"></i>
+    <h2>Standard</h2>
+    <div class="price">₹499 <span>/month</span></div>
+    <p>Best choice ⭐</p>
+    <ul>
+      <li><i class="fas fa-check"></i>5 Projects</li>
+      <li><i class="fas fa-check"></i>Priority Support</li>
+    </ul>
+    <button onclick="selectPlan('Standard')">Choose</button>
+  </div>
+
+  <!-- Premium -->
+  <div class="card">
+    <i class="fas fa-crown"></i>
+    <h2>Premium</h2>
+    <div class="price">₹999 <span>/month</span></div>
+    <p>Ultimate power 💎</p>
+    <ul>
+      <li><i class="fas fa-check"></i>Unlimited</li>
+      <li><i class="fas fa-check"></i>24/7 Support</li>
+    </ul>
+    <button onclick="selectPlan('Premium')">Choose</button>
+  </div>
+
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay"></div>
+
+<!-- Plan Popup -->
+<div class="popup" id="popup">
+  <h2>Thank You 🎉</h2>
+  <p id="planMsg"></p>
+  <p id="tagline"></p>
+  <br>
+  <button onclick="openPayment()">Continue</button>
+</div>
+
+<!-- Payment Modal -->
+<div class="payment" id="payment">
+  <h2>Select Payment 💳</h2>
+
+  <div class="payment-options">
+    <label><input type="radio" name="pay"> Credit Card</label>
+    <label><input type="radio" name="pay"> Debit Card</label>
+    <label><input type="radio" name="pay"> UPI</label>
+  </div>
+
+  <button onclick="completePayment()">Pay Now</button>
+</div>
+
+<!-- Success Modal -->
+<div class="success" id="success">
+  <i class="fas fa-check-circle"></i>
+  <h2>Payment Successful 🎉</h2>
+  <p>Subscription Activated 🚀</p>
+  <p id="finalPlan"></p>
+  <br>
+  <button onclick="closeAll()">Done</button>
+</div>
+
+<script>
+let selectedPlan = "";
+
+function selectPlan(plan) {
+  selectedPlan = plan;
+
+  let msg = "";
+  let tag = "";
+
+  if (plan === "Basic") {
+    msg = "You selected Basic Plan 🌱";
+    tag = "“Small steps today, big wins tomorrow!”";
+  } else if (plan === "Standard") {
+    msg = "You selected Standard Plan ⭐";
+    tag = "“Level up your game with smarter tools!”";
+  } else {
+    msg = "You selected Premium Plan 💎";
+    tag = "“Go big, go premium, go limitless!”";
+  }
+
+  document.getElementById("planMsg").innerText = msg;
+  document.getElementById("tagline").innerText = tag;
+
+  document.getElementById("popup").classList.add("active");
+  document.getElementById("overlay").classList.add("active");
+}
+
+function openPayment() {
+  document.getElementById("popup").classList.remove("active");
+  document.getElementById("payment").classList.add("active");
+}
+
+function completePayment() {
+  document.getElementById("payment").classList.remove("active");
+  document.getElementById("success").classList.add("active");
+  document.getElementById("finalPlan").innerText =
+    "You subscribed to " + selectedPlan + " Plan ✅";
+}
+
+function closeAll() {
+  document.getElementById("success").classList.remove("active");
+  document.getElementById("overlay").classList.remove("active");
+}
+</script>
+
+</body>
+</html>
