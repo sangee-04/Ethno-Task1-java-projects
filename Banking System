@@ -1,0 +1,367 @@
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.awt.event.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+public class BankingSystemUI extends JFrame {
+    // ======= OOP Object (Encapsulated Account) =======
+    private final BankAccount account = new BankAccount("SANGEETHA BK", "AC-100200");
+    // ======= UI Components =======
+    private final GradientPanel root = new GradientPanel(new Color(30, 60, 114), new Color(42, 82, 152));
+    private final JLabel title = new JLabel("Smart Banking System");
+    private final JLabel subTitle = new JLabel("Deposit • Withdraw • Balance • Transaction History");
+    private final JLabel accInfo = new JLabel();
+    private final JLabel balanceLabel = new JLabel();
+    private final JLabel lastTxnLabel = new JLabel("Last Transaction: -");
+    private final JTextArea historyArea = new JTextArea(10, 30);
+    private final JButton depositBtn = new JButton("Deposit");
+    private final JButton withdrawBtn = new JButton("Withdraw");
+    private final JButton balanceBtn = new JButton("Show Balance");
+    private final JButton historyBtn = new JButton("Show History");
+    private final JButton themeBtn = new JButton("Change Theme");
+    private final Random random = new Random();
+    public BankingSystemUI() {
+        setTitle("Banking System - OOP + UI");
+        setSize(780, 520);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setContentPane(root);
+        root.setLayout(new BorderLayout(15, 15));
+        root.setBorder(new EmptyBorder(16, 16, 16, 16));
+        JPanel header = new JPanel(new GridLayout(3, 1, 6, 6));
+        header.setOpaque(false);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 30));
+        title.setForeground(Color.WHITE);
+        subTitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        subTitle.setForeground(new Color(230, 230, 230));
+        accInfo.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        accInfo.setForeground(new Color(240, 240, 240));
+        header.add(title);
+        header.add(subTitle);
+        header.add(accInfo);
+        root.add(header, BorderLayout.NORTH);
+        JPanel center = new JPanel(new BorderLayout(12, 12));
+        center.setOpaque(false);
+        JPanel infoCard = createCardPanel();
+        infoCard.setLayout(new GridLayout(2, 1, 8, 8));
+        balanceLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        balanceLabel.setForeground(Color.WHITE);
+        lastTxnLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lastTxnLabel.setForeground(new Color(235, 235, 235));
+        infoCard.add(balanceLabel);
+        infoCard.add(lastTxnLabel);
+        JPanel historyCard = createCardPanel();
+        historyCard.setLayout(new BorderLayout(8, 8));
+        JLabel histTitle = new JLabel("Transaction History");
+        histTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        histTitle.setForeground(Color.WHITE);
+        historyArea.setEditable(false);
+        historyArea.setFont(new Font("Consolas", Font.PLAIN, 13));
+        historyArea.setLineWrap(true);
+        historyArea.setWrapStyleWord(true);
+        historyArea.setBackground(new Color(15, 15, 25));
+        historyArea.setForeground(new Color(240, 240, 240));
+        historyArea.setBorder(new EmptyBorder(10, 10, 10, 10));
+        JScrollPane scroll = new JScrollPane(historyArea);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.getViewport().setBackground(new Color(15, 15, 25));
+        historyCard.add(histTitle, BorderLayout.NORTH);
+        historyCard.add(scroll, BorderLayout.CENTER);
+        JPanel cards = new JPanel(new GridLayout(1, 2, 12, 12));
+        cards.setOpaque(false);
+        cards.add(infoCard);
+        cards.add(historyCard);
+        center.add(cards, BorderLayout.CENTER);
+        root.add(center, BorderLayout.CENTER);
+        JPanel actions = new JPanel(new GridLayout(1, 5, 10, 10));
+        actions.setOpaque(false);
+        styleButton(depositBtn, new Color(0, 200, 140));
+        styleButton(withdrawBtn, new Color(255, 110, 110));
+        styleButton(balanceBtn, new Color(120, 180, 255));
+        styleButton(historyBtn, new Color(180, 140, 255));
+        styleButton(themeBtn, new Color(255, 200, 90));
+        actions.add(depositBtn);
+        actions.add(withdrawBtn);
+        actions.add(balanceBtn);
+        actions.add(historyBtn);
+        actions.add(themeBtn);
+        root.add(actions, BorderLayout.SOUTH);
+        refreshHeader();
+        refreshBalance();
+        historyArea.setText("Click “Show History” to view transactions.\n");
+        depositBtn.addActionListener(e -> doDeposit());
+        withdrawBtn.addActionListener(e -> doWithdraw());
+        balanceBtn.addActionListener(e -> {
+            refreshBalance();
+            JOptionPane.showMessageDialog(this,
+                    "Current Balance: ₹ " + account.getBalance(),
+                    "Balance",
+                    JOptionPane.INFORMATION_MESSAGE);
+        });
+        historyBtn.addActionListener(e -> showHistory());
+        themeBtn.addActionListener(e -> changeTheme());
+        addKeyBindings();
+        setVisible(true);
+    }
+    private void refreshHeader() {
+        accInfo.setText("Account Holder: " + account.getHolderName()
+                + "   |   Account No: " + account.getAccountNumber());
+    }
+    private void refreshBalance() {
+        balanceLabel.setText("Balance: ₹ " + account.getBalance());
+    }
+    private void showHistory() {
+        List<Transaction> txns = account.getHistory();
+        if (txns.isEmpty()) {
+            historyArea.setText("No transactions yet.\nTry Deposit or Withdraw.\n");
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("---- TRANSACTION HISTORY ----\n\n");
+        for (Transaction t : txns) {
+            sb.append(t).append("\n");
+        }
+        historyArea.setText(sb.toString());
+        historyArea.setCaretPosition(0);
+        JOptionPane.showMessageDialog(this,
+                "History loaded in the right panel ",
+                "History",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+    private void doDeposit() {
+        String input = JOptionPane.showInputDialog(this,
+                "Enter deposit amount (₹):",
+                "Deposit",
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (input == null) return; // cancelled
+        BigDecimal amt = parseMoney(input);
+        if (amt == null) return;
+        account.deposit(amt);
+        refreshBalance();
+        Transaction last = account.getLastTransaction();
+        lastTxnLabel.setText("Last Transaction: " + (last != null ? last.shortView() : "-"));
+
+        JOptionPane.showMessageDialog(this,
+                "Deposit Successful \nAmount: ₹ " + amt + "\nNew Balance: ₹ " + account.getBalance(),
+                "Success",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+    private void doWithdraw() {
+        String input = JOptionPane.showInputDialog(this,
+                "Enter withdraw amount (₹):",
+                "Withdraw",
+                JOptionPane.QUESTION_MESSAGE);
+
+        if (input == null) return; // cancelled
+        BigDecimal amt = parseMoney(input);
+        if (amt == null) return;
+        try {
+            account.withdraw(amt);
+            refreshBalance();
+            Transaction last = account.getLastTransaction();
+            lastTxnLabel.setText("Last Transaction: " + (last != null ? last.shortView() : "-"));
+
+            JOptionPane.showMessageDialog(this,
+                    "Withdraw Successful \nAmount: ₹ " + amt + "\nNew Balance: ₹ " + account.getBalance(),
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this,
+                    ex.getMessage(),
+                    "Withdraw Failed",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    private BigDecimal parseMoney(String input) {
+        String cleaned = input.trim();
+        if (cleaned.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Amount cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+        try {
+            BigDecimal amt = new BigDecimal(cleaned).setScale(2, RoundingMode.HALF_UP);
+            if (amt.compareTo(BigDecimal.ZERO) <= 0) {
+                JOptionPane.showMessageDialog(this, "Enter amount greater than 0.", "Error", JOptionPane.ERROR_MESSAGE);
+                return null;
+            }
+            return amt;
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Enter a valid number (example: 500 or 500.50).", "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+    }
+    private void changeTheme() {
+        // Random pleasing gradient
+        Color c1 = new Color(20 + random.nextInt(120), 20 + random.nextInt(120), 40 + random.nextInt(180));
+        Color c2 = new Color(40 + random.nextInt(180), 40 + random.nextInt(180), 40 + random.nextInt(180));
+        root.setGradient(c1, c2);
+        JOptionPane.showMessageDialog(this,
+                "Theme changed ",
+                "Theme",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+    private JPanel createCardPanel() {
+        JPanel p = new JPanel();
+        p.setOpaque(true);
+        p.setBackground(new Color(0, 0, 0, 90));
+        p.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 1),
+                new EmptyBorder(14, 14, 14, 14)
+        ));
+        return p;
+    }
+    private void styleButton(JButton b, Color bg) {
+        b.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        b.setFocusPainted(false);
+        b.setBackground(bg);
+        b.setForeground(Color.BLACK);
+        b.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        b.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                b.setBackground(bg.darker());
+                b.setForeground(Color.WHITE);
+            }
+            public void mouseExited(MouseEvent e) {
+                b.setBackground(bg);
+                b.setForeground(Color.BLACK);
+            }
+        });
+    }
+    private void addKeyBindings() {
+        InputMap im = root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap am = root.getActionMap();
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_H, InputEvent.CTRL_DOWN_MASK), "history");
+        am.put("history", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) { showHistory(); }
+        });
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK), "theme");
+        am.put("theme", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) { changeTheme(); }
+        });
+    }
+    // ================== MAIN ==================
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(BankingSystemUI::new);
+    }
+}
+// ============================================================
+// Encapsulated Banking Class (OOP: encapsulation, methods)
+// ============================================================
+class BankAccount {
+    private final String holderName;
+    private final String accountNumber;
+    private BigDecimal balance;                
+    private final List<Transaction> history;   
+    public BankAccount(String holderName, String accountNumber) {
+        this.holderName = holderName;
+        this.accountNumber = accountNumber;
+        this.balance = new BigDecimal("0.00");
+        this.history = new ArrayList<>();
+    }
+    public String getHolderName() {
+        return holderName;
+    }
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+    public String getBalance() {
+        return balance.setScale(2, RoundingMode.HALF_UP).toString();
+    }
+    public void deposit(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Invalid deposit amount.");
+        }
+        balance = balance.add(amount);
+        history.add(Transaction.deposit(amount, balance));
+    }
+    public void withdraw(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Invalid withdraw amount.");
+        }
+        if (balance.compareTo(amount) < 0) {
+            throw new IllegalArgumentException("Insufficient balance ❌\nAvailable: ₹ " + getBalance());
+        }
+        balance = balance.subtract(amount);
+        history.add(Transaction.withdraw(amount, balance));
+    }
+    public List<Transaction> getHistory() {
+        // Return a safe copy (keeps encapsulation safe)
+        return new ArrayList<>(history);
+    }
+    public Transaction getLastTransaction() {
+        if (history.isEmpty()) return null;
+        return history.get(history.size() - 1);
+    }
+}
+// ============================================================
+// Transaction Model (type, amount, timestamp, balanceAfter)
+// ============================================================
+class Transaction {
+    private final String type; // DEPOSIT / WITHDRAW
+    private final BigDecimal amount;
+    private final BigDecimal balanceAfter;
+    private final LocalDateTime time;
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd-MMM-yyyy  hh:mm a");
+    private Transaction(String type, BigDecimal amount, BigDecimal balanceAfter) {
+        this.type = type;
+        this.amount = amount.setScale(2, RoundingMode.HALF_UP);
+        this.balanceAfter = balanceAfter.setScale(2, RoundingMode.HALF_UP);
+        this.time = LocalDateTime.now();
+    }
+    public static Transaction deposit(BigDecimal amt, BigDecimal balanceAfter) {
+        return new Transaction("DEPOSIT ", amt, balanceAfter);
+    }
+    public static Transaction withdraw(BigDecimal amt, BigDecimal balanceAfter) {
+        return new Transaction("WITHDRAW", amt, balanceAfter);
+    }
+    public String shortView() {
+        return type + " ₹" + amount + " (Bal: ₹" + balanceAfter + ")";
+    }
+    @Override
+    public String toString() {
+        return "[" + time.format(FMT) + "]  " + type
+                + "  Amount: ₹" + amount
+                + "  |  Balance After: ₹" + balanceAfter;
+    }
+}
+// ============================================================
+// Gradient Background Panel (UI)
+// ============================================================
+class GradientPanel extends JPanel {
+    private Color c1;
+    private Color c2;
+    public GradientPanel(Color c1, Color c2) {
+        this.c1 = c1;
+        this.c2 = c2;
+        setOpaque(true);
+    }
+    public void setGradient(Color c1, Color c2) {
+        this.c1 = c1;
+        this.c2 = c2;
+        repaint();
+    }
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        int w = getWidth();
+        int h = getHeight();
+        GradientPaint gp = new GradientPaint(0, 0, c1, w, h, c2);
+        g2.setPaint(gp);
+        g2.fillRect(0, 0, w, h);
+        // Soft overlay glow
+        g2.setColor(new Color(255, 255, 255, 18));
+        g2.fillOval(-100, -100, 300, 300);
+        g2.dispose();
+    }
+}
