@@ -1,0 +1,180 @@
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+
+public class ColorCalculator extends JFrame implements ActionListener {
+    private JTextField display;
+    private String currentNumber = "";
+    private double firstValue = 0;
+    private String operator = "";
+    private boolean justCalculated = false;
+    private final String[] btnText = {
+            "C", "⌫", "%", "÷",
+            "7", "8", "9", "×",
+            "4", "5", "6", "−",
+            "1", "2", "3", "+",
+            "00", "0", ".", "="
+    };
+    public ColorCalculator() {
+        setTitle("Color Calculator");
+        setSize(360, 520);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLayout(new BorderLayout(10, 10));
+
+        display = new JTextField("0");
+        display.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        display.setHorizontalAlignment(SwingConstants.RIGHT);
+        display.setEditable(false);
+        display.setBackground(new Color(25, 25, 35));
+        display.setForeground(Color.WHITE);
+        display.setBorder(BorderFactory.createEmptyBorder(20, 15, 20, 15));
+        add(display, BorderLayout.NORTH);
+
+        JPanel panel = new JPanel(new GridLayout(5, 4, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        panel.setBackground(new Color(18, 18, 28));
+
+        for (String text : btnText) {
+            JButton btn = new JButton(text);
+            btn.setFont(new Font("Segoe UI", Font.BOLD, 20));
+            btn.setFocusPainted(false);
+            btn.addActionListener(this);
+
+            if (text.equals("C") || text.equals("⌫")) {
+                btn.setBackground(new Color(255, 85, 85)); // red-ish
+                btn.setForeground(Color.WHITE);
+            } else if (text.equals("=")) {
+                btn.setBackground(new Color(0, 200, 140)); // green
+                btn.setForeground(Color.WHITE);
+            } else if (isOperator(text)) {
+                btn.setBackground(new Color(90, 140, 255)); // blue
+                btn.setForeground(Color.WHITE);
+            } else {
+                btn.setBackground(new Color(45, 45, 65)); // dark buttons
+                btn.setForeground(Color.WHITE);
+            }
+
+            btn.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+            panel.add(btn);
+        }
+
+        add(panel, BorderLayout.CENTER);
+        setVisible(true);
+    }
+
+    private boolean isOperator(String s) {
+        return s.equals("+") || s.equals("−") || s.equals("×") || s.equals("÷") || s.equals("%");
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        String pressed = ((JButton) e.getSource()).getText();
+
+        if (pressed.equals("C")) {
+            currentNumber = "";
+            firstValue = 0;
+            operator = "";
+            justCalculated = false;
+            display.setText("0");
+            return;
+        }
+
+        if (pressed.equals("⌫")) {
+            if (!currentNumber.isEmpty()) {
+                currentNumber = currentNumber.substring(0, currentNumber.length() - 1);
+                display.setText(currentNumber.isEmpty() ? "0" : currentNumber);
+            }
+            return;
+        }
+
+        if (pressed.matches("[0-9]") || pressed.equals("00") || pressed.equals(".")) {
+            if (justCalculated) { // start fresh after result
+                currentNumber = "";
+                justCalculated = false;
+            }
+
+            if (pressed.equals(".")) {
+                if (currentNumber.isEmpty()) currentNumber = "0";
+                if (currentNumber.contains(".")) return; // prevent multiple dots
+            }
+
+            if (currentNumber.equals("0") && pressed.matches("[0-9]")) {
+                currentNumber = pressed;
+            } else {
+                currentNumber += pressed;
+            }
+
+            display.setText(currentNumber);
+            return;
+        }
+
+        if (isOperator(pressed)) {
+            if (!currentNumber.isEmpty()) {
+                firstValue = Double.parseDouble(currentNumber);
+                currentNumber = "";
+            }
+            operator = pressed;
+            justCalculated = false;
+            return;
+        }
+
+        if (pressed.equals("=")) {
+            if (operator.isEmpty() || currentNumber.isEmpty()) return;
+
+            double secondValue = Double.parseDouble(currentNumber);
+            double result;
+
+            switch (operator) {
+                case "+":
+                    result = firstValue + secondValue;
+                    break;
+                case "−":
+                    result = firstValue - secondValue;
+                    break;
+                case "×":
+                    result = firstValue * secondValue;
+                    break;
+                case "÷":
+                    if (secondValue == 0) {
+                        display.setText("Error");
+                        currentNumber = "";
+                        operator = "";
+                        justCalculated = true;
+                        return;
+                    }
+                    result = firstValue / secondValue;
+                    break;
+                case "%":
+                    // Example: 50 % 10 => 50 * (10/100) = 5
+                    result = firstValue * (secondValue / 100.0);
+                    break;
+                default:
+                    return;
+            }
+
+            String output = formatResult(result);
+            display.setText(output);
+
+            firstValue = result;
+            currentNumber = output; // allow continuing: result + next
+            operator = "";
+            justCalculated = true;
+        }
+    }
+
+    private String formatResult(double value) {
+        // Show integer without .0
+        if (value == (long) value) return String.valueOf((long) value);
+
+        String s = String.format("%.10f", value);
+        while (s.contains(".") && (s.endsWith("0") || s.endsWith("."))) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(ColorCalculator::new);
+    }
+}
